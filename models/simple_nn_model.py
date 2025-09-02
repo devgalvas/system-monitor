@@ -6,7 +6,7 @@ from tensorflow.keras import layers, metrics
 import pandas as pd
 import numpy as np
 
-from sklearn.metrics import mean_absolute_percentage_error, r2_score
+from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.preprocessing import StandardScaler
 
 class SimpleNNModel(BaseModel):
@@ -33,7 +33,7 @@ class SimpleNNModel(BaseModel):
     def split(self):
         n = self.X.shape[0]
         train_end = int(n * 0.7)
-        val_end   = int(n * 0.75)
+        val_end   = int(n * 0.9)
 
         X_train_raw, y_train_raw = self.X[:train_end], self.y[:train_end]
         X_val_raw,   y_val_raw   = self.X[train_end:val_end], self.y[train_end:val_end]
@@ -82,17 +82,17 @@ class SimpleNNModel(BaseModel):
             layers.LSTM(128, return_sequences=True),
             layers.LSTM(64),
             layers.Dropout(0.2),
-            layers.Dense(self.forecast_horizon * n_features),  # todas as features x horizontes
-            layers.Reshape((self.forecast_horizon, n_features))
+            layers.Dense(self.forecast_horizon), 
         ])
 
-        self.model.compile(optimizer='adam', loss='mean_squared_error', metrics=[metrics.MeanAbsoluteError()])
+        self.model.compile(optimizer='adam', loss='mean_squared_error', 
+                           metrics=[metrics.MeanAbsoluteError(), metrics.R2Score()])
 
         self.history = self.model.fit(
             self.X_train,
             self.y_train,
             epochs=5,
-            # validation_data=(self.X_val, self.y_val),
+            validation_data=(self.X_val, self.y_val),
         )
 
         self.y_pred = self.model.predict(self.X_test)
@@ -101,7 +101,7 @@ class SimpleNNModel(BaseModel):
         y_test_first_step = self.y_test[:, 0]
 
         self.metrics = {
-            "MAPE": mean_absolute_percentage_error(y_test_first_step, pred_first_step),
+            "MAPE": mean_absolute_error(y_test_first_step, pred_first_step),
             "R2": r2_score(y_test_first_step, pred_first_step)
         }
 
