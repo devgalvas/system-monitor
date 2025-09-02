@@ -1,0 +1,15 @@
+pandas
+requests
+python-dotenv
+streamlit
+seaborn
+matplotlib
+numpy
+psycopg2-binary
+sqlalchemy
+jupyter
+ipykernel
+xgboost
+scikit-learn
+tensorflow
+statsmodels
