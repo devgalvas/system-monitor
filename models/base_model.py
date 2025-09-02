@@ -32,8 +32,4 @@ class BaseModel(ABC):
 
     @abstractmethod
     def load(self):
-        pass
-
-    @abstractmethod
-    def grid_search(self, df: pd.DataFrame, target_column: str = None):
-        pass
+        pass 

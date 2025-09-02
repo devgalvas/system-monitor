@@ -105,8 +105,6 @@ class MultiNNModel(BaseModel):
         for i, v in enumerate(self.target_columns):
             y_true_feat = self.y_test[:, :, i]  # shape: (batch_size, horizon)
             y_pred_feat = self.y_pred[:, :, i]  # shape: (batch_size, horizon)
-            
-            # MAPE e R² por feature
         
             self.metrics.append({
                 "column": v,
@@ -114,7 +112,7 @@ class MultiNNModel(BaseModel):
                 "R2": r2_score(y_true_feat, y_pred_feat)
             })
 
-        # self.model.save("outputs/neural_network/nn.keras")
+        self.model.save("outputs/neural_network/multi_nn.keras")
 
     def predict(self, df):
         X, y, time = self.preprocess(df)
@@ -127,7 +125,4 @@ class MultiNNModel(BaseModel):
         return y_pred, time
 
     def load(self):
-        pass
-
-    def grid_search(self, df, target_column):
-        pass
+        self.model.load_model("outputs/neural_network/multi_nn.keras")

@@ -1,5 +1,5 @@
 import os
-from abc import ABC, abstractmethod
+from abc import ABC
 
 class BaseView(ABC):
     def __init__(self, dir_path: str = "outputs/"):

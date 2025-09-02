@@ -39,7 +39,6 @@ class DataLoader:
         print(f"Túnel SSH aberto na porta {self.local_port}")
 
     def connect_to_db(self):
-        # self.start_ssh_tunnel()
         db_url = f"postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.local_port}/{self.dbname}"
         self.engine = create_engine(db_url)
         print("Connected")

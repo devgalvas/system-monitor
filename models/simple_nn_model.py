@@ -105,7 +105,7 @@ class SimpleNNModel(BaseModel):
             "R2": r2_score(y_test_first_step, pred_first_step)
         }
 
-        # self.model.save("outputs/neural_network/nn.keras")
+        self.model.save("outputs/neural_network/simple_nn.keras")
 
     def predict(self, df, target_column):
         X, y, time = self.preprocess(df, target_column)
@@ -117,7 +117,4 @@ class SimpleNNModel(BaseModel):
         return y_pred, time
 
     def load(self):
-        pass
-
-    def grid_search(self, df, target_column):
-        pass
+        self.model.load_model("outputs/neural_network/simple_nn.keras")

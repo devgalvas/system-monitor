@@ -22,7 +22,7 @@ class XGBoostController(BaseController):
         print(model.metrics)
 
         pred, pred_time = model.predict(df, 'ocnr_nm_result')
-        ts_view = TimeSeriesView(dir_path = 'outputs/timeseries/')
+        ts_view = TimeSeriesView(dir_path = 'outputs/xgboost/')
         ts_view.plot_model_evolution(pred_time, pred,
                                     model.time, model.y, filename='nov_xgboost_forecast_memory',
                                     title=f"Uso de Memória (GB)", namespace=namespace,

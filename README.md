@@ -1,88 +1,92 @@
-# Vertis Data Consultant 🤖📊
+# System-monitor 
+Uma plataforma para a análise de dados do monitoramento do OpenShift por meio de vários modelos de IA diferentes. 
 
-A modern, interactive chatbot built with **Streamlit** that lets you upload CSV files and ask questions about your data in natural language. Powered by LLMs (via Groq API) and DuckDB for fast, flexible querying.
+## Visão Geral
 
----
-
-## Features
-
-- **Upload CSV files** (supports large files)
-- **Ask questions in natural language** about your data
-- **Automatic SQL generation** using LLMs
-- **View answers as tables or text**
-- **Show raw data** in an expandable section
-- **Beautiful dark blue UI** for easy reading
-- **Sidebar** for quick access to upload and options
-
----
-
-## Screenshots
-
-![screenshot](image/chatbot.webp)
-
----
-
-## Getting Started
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/yourusername/vertis-data-consultant.git
-cd vertis-data-consultant/vertis_research_agent
+## Configuração do ambiente
+1. Clonar repositório:  
+``` bash
+git clone https://github.com/LuizF14/system-monitor.git
+cd system-monitor
+``` 
+2. Criar ambiente virtual (recomendado):
+``` bash
+python -m venv venv
+source .venv/bin/activate
 ```
-
-### 2. Install dependencies
-
-```bash
+3. Instalar dependências:
+``` bash
+pip install --upgrade pip
 pip install -r requirements.txt
+``` 
+## Iniciando o banco de dados
+
+## Importando CSV para o banco de dados
+
+## Dataloader
+O módulo `models/dataloader.py` fornece a classe `DataLoader`, responsável por gerenciar conexões com um banco de dados PostgreSQL, incluindo abertura de túnel SSH, execução de queries e criação de materialized views para otimizar consultas. Todas as configurações de conexão devem ser definidas no arquivo `.env`:
+``` env
+# Banco de dados
+DB_HOST=localhost
+DB_NAME=meu_banco
+DB_USER=usuario
+DB_PASS=senha
+DB_TABLE=ocnr_dados
+
+# Conexão SSH (opcional)
+SSH_HOST=servidor.remoto.com
+SSH_PORT=22
+SSH_USER=ssh_user
+SSH_PASS=ssh_senha
+LOCAL_PORT=5433
+```  
+Se a conexão for local, basta configurar apenas as variáveis do banco. Se a conexão for via túnel SSH, é necessário preencher também os campos `SSH_*`. Os principais métodos dessa classe são: 
+* `start_ssh_tunnel`: Abre um túnel SSH local para o servidor remoto, redirecionando a porta do PostgreSQL.
+* `connect_to_db`: Estabelece a conexão com o banco de dados PostgreSQL.
+* `close`: Encerra tanto a conexão com o banco de dados quanto o túnel SSH (se aberto).
+* `query_to_db`: Executa uma query SQL e retorna o resultado como um `DataFrame` pandas.
+* `createOverviewView`: Cria a materialized view `ocnr_overview` com estatísticas resumidas de cada namespace e query: máximo, mínimo, média, desvio padrão e número de amostras.
+* `fullDataOverview`: retorna os dados da materialized view `ocnr_overview`.
+* `createNamespaceView`: Cria uma materialized view específica para um namespace, facilitando consultas filtradas. Se a view já existir, nenhuma ação é tomada.
+
+## Models
+O diretório `models/` contém as classes responsáveis pela lógica intrínseca dos modelos de IA: preparação dos dados, definição de hiperparâmetros, treinamento e validação, predição com novos dados, etc. Todos os modelos devem herdar da classe abstrata `BaseModel`, que define uma interface comum para padronizar o uso dentro do projeto. Ela define os seguintes métodos: 
+* `preprocess`: Realiza o pré-processamento dos dados de entrada, adaptando-os à lógica específica do modelo.
+* `train`: Treina o modelo com base nos dados.
+* `predict`: Realiza previsões a partir dos dados informados.
+* `load`: Carrega um modelo salvo em disco.
+
+## Controllers
+O diretório `controllers/` contém as classes responsáveis por orquestrar todo pipeline de treinamento, teste e visualização dos modelos. Os controllers atuam como camada de integração, coordenando chamadas para o `Dataloader`, os `models` e as `views`. Exigi-se que toda classe `controller` implemente no mínimo o método `run`.
+
+## Views
+O diretório `views/` contém as classes responsáveis pela plotagem e visualização dos dados e resultados dos modelos. A plotagem é feita por meio das bibliotecas `matplotlib` e `seaborn`. Todos os gráficos são salvos em arquivos .png dentro do diretório `outputs/`. Cada classe de view pode definir sua própria subpasta por meio do atributo `dir_path`, permitindo organizar melhor os resultados de diferentes experimentos ou modelos.
+
+## Outputs
+O diretório `outputs/` contém todos os arquivos estáticos gerados pelo projeto, como imagens (`.png`) e modelos salvos (`.keras`). A organização segue a seguinte hierarquia:
+* `neural_network/`: resultados relacionados a redes neurais.
+* `xgboost/`: resultados relacionados ao modelo XGBoost.
+* arquivos na raiz (`outputs/`): análises gerais, decomposições e estatísticas.
+Os gráficos seguem o padrão: 
 ```
+<prefixo>_<período>_<modelo>_<tarefa>_<namespace>.png
+``` 
+1. Prefixo  
+Indica o tipo de gráfico: 
+* `tm` → Timeseries: plota somente a série temporal ao longo do tempo.
+* `p` → Performance: plota valores reais vs previstos.
+* `e` → Evolution: plota reais vs previstos e adiciona a linha de separação entre treino e teste.
+* `l` → Lag search: mostra a performance do modelo em função da variação dos lags.
 
-### 3. Set your API key
+2. Período 
+* Indica o intervalo de tempo da análise. Exemplo: `day15`, `nov`.
 
-Create a `.env` file in the project root:
+3. Modelo
+* Nome do modelo utilizado, como `xgboost`.
 
-```
-API_KEY=your_groq_api_key_here
-```
+4. Tarefa
+* `forecast`: previsão de séries temporais.
+* `classification`: classifacação de dados.
 
-Or export it in your shell:
-
-```bash
-export API_KEY=your_groq_api_key_here
-```
-
-### 4. Run the app
-
-```bash
-streamlit run app.py
-```
-
----
-
-## Usage
-
-1. **Upload a CSV file** using the sidebar.
-2. **Ask a question** (e.g., "Which rows have missing values?").
-3. **View the answer** as a table or text.
-4. **Expand "Show raw data"** to preview your CSV.
-
----
-
-## Technologies Used
-
-- [Streamlit](https://streamlit.io/)
-- [DuckDB](https://duckdb.org/)
-- [Groq API](https://console.groq.com/)
-- [Python](https://python.org/)
-
----
-
-## Credits
-
-Made with ❤️ by [Lucas Galvão Freitas](https://github.com/devgalvas)
-
----
-
-## License
-
-MIT License
+5. Namespace
+* Namespace utilizado: `panda-druid`, `panda-nifi`.

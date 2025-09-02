@@ -77,7 +77,7 @@ def main():
     conn = connect_to_db(conn_str)
     create_table(conn)
     for i in range(5):
-        copy_csv_to_db(conn, f"/app/archive/0{i}.csv", 'ocnr_dados')
+        copy_csv_to_db(conn, f"/archive/0{i}.csv", 'ocnr_dados')
 
 if __name__ == "__main__":
     main()
