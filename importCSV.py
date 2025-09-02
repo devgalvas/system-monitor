@@ -5,14 +5,7 @@ import pandas as pd
 import psycopg2
 from psycopg2 import OperationalError
 
-# Configurações do banco
-DB_CONFIG = {
-    "host": "db",    
-    "port": 5432,
-    "dbname": "vertis-db",
-    "user": "luiz",
-    "password": "hello123"
-}
+from dotenv import load_dotenv
 
 CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS ocnr_dados (
@@ -73,6 +66,14 @@ def copy_csv_to_db(conn, csv_path, table_name, chunk_size=100_000):
     print("Importação concluída com sucesso.")
 
 def main():
+    load_dotenv()
+    DB_CONFIG = {
+        'host': os.getenv("DB_HOST"), 
+        'port': os.getenv("DB_PORT"), 
+        'dbname': os.getenv("DB_NAME"), 
+        'user': os.getenv("DB_USER"), 
+        'password': os.getenv("DB_PASS"), 
+    }
     conn_str = f"host={DB_CONFIG['host']} port={DB_CONFIG['port']} dbname={DB_CONFIG['dbname']} user={DB_CONFIG['user']} password={DB_CONFIG['password']}"
     conn = connect_to_db(conn_str)
     create_table(conn)

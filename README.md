@@ -1,7 +1,47 @@
 # System-monitor 
-Uma plataforma para a análise de dados do monitoramento do OpenShift por meio de vários modelos de IA diferentes. 
+Este repositório implementa um pipeline completo para a análise de dados do monitoramento do OpenShift por meio de modelos de Machine Learning.
 
 ## Visão Geral
+O projeto está organizado em módulos bem definidos, que se comunicam entre si para formar o fluxo de dados:
+* `models/` → contém a lógica dos modelos de IA (pré-processamento, treinamento, predição).
+* `controllers/` → orquestram o pipeline, integrando `DataLoader`, `Model` e `View`.
+* `views/` → responsáveis pela visualização e geração dos gráficos.
+* `outputs/` → repositório dos resultados estáticos (gráficos `.png`, modelos salvos).
+* Scripts principais (`app.py`, `importCSV.py`) → entrada do sistema e utilidades.
+
+``` bash 
+├── app.py                 # Ponto de entrada da aplicação
+├── importCSV.py           # Script auxiliar para ingestão de dados
+│
+├── controllers/           # Controladores do pipeline
+│   ├── base_controllers.py
+│   ├── nn_controller.py
+│   ├── overview_controller.py
+│   └── xgboost_controller.py
+│
+├── models/                # Modelos de IA e DataLoader
+│   ├── base_model.py
+│   ├── dataloader.py
+│   ├── multi_nn_model.py
+│   ├── simple_nn_model.py
+│   └── xgboost_model.py
+│
+├── views/                 # Visualizações e geração de gráficos
+│   ├── base_view.py
+│   ├── overview.py
+│   └── time_series_view.py
+│
+├── outputs/               # Resultados do projeto
+│   ├── neural_network/    # Gráficos das redes neurais
+│   ├── xgboost/           # Gráficos do modelo XGBoost
+│   ├── decomposition_*    # Decomposição de séries temporais
+│   ├── samples_daily_*    # Amostras diárias
+│   ├── Top50Namespaces*   # Estatísticas agregadas
+│   └── *.keras            # Modelos treinados salvos
+│
+├── requirements.txt       # Dependências do projeto
+└── README.md              # Documentação principal
+```
 
 ## Configuração do ambiente
 1. Clonar repositório:  
@@ -20,6 +60,21 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ``` 
 ## Iniciando o banco de dados
+Esta aplicação utiliza um banco de dados PostgreSql para interagir com os dados. Para inicializá-lo é necessário rodar um container Docker. Preencha o template abaixo de acordo suas especificações, execute-o e configure apropriadamente o `.env`: 
+``` docker
+services:
+  db:
+    image: postgres:15
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_DB: nome_da_db
+      POSTGRES_USER: seu_usuario
+      POSTGRES_PASSWORD: sua_senha
+    ports:
+      - "5432:5432"
+    volumes:
+``` 
 
 ## Importando CSV para o banco de dados
 
