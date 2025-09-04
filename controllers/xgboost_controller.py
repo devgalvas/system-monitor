@@ -1,40 +1,46 @@
-from views.time_series_view import TimeSeriesView 
-from controllers.base_controllers import BaseController
+from controllers.controller_utils import get_view_name 
+
+import views.time_series_view as ts_view
 from models.xgboost_model import XGBoostModel
+from models.dataloader import DataLoader
 
-import pandas as pd
+def test_model(namespace, view_name):
+    dl.createNamespaceView(namespace, view_name)
+    df = dl.query_to_db(f"""
+        SELECT ocnr_dt_date, ocnr_nm_result FROM {view_name} 
+        WHERE ocnr_tx_query = 'NAMESPACE_MEMORY_USAGE'
+        AND EXTRACT(MONTH FROM ocnr_dt_date) = 11
+        ORDER BY ocnr_dt_date
+    """)
 
-class XGBoostController(BaseController):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    model = XGBoostModel()
+    model.train(df, 'ocnr_nm_result')
+    print(model.metrics)
 
-    def test_model(self, namespace, view_name):
-        self.dl.createNamespaceView(namespace, view_name)
-        df = self.dl.query_to_db(f"""
-            SELECT ocnr_dt_date, ocnr_nm_result FROM {view_name} 
-            WHERE ocnr_tx_query = 'NAMESPACE_MEMORY_USAGE'
-            AND EXTRACT(MONTH FROM ocnr_dt_date) = 11
-            ORDER BY ocnr_dt_date
-        """)
+    pred, pred_time = model.predict(df, 'ocnr_nm_result')
+    ts_view.plot_model_evolution(pred_time, pred,
+                                model.time, model.y, filename='nov_xgboost_forecast_memory',
+                                title=f"Uso de Memória (GB)", namespace=namespace,
+                                mape=model.metrics['MAPE'],
+                                r2=model.metrics['R2'],
+                                split_idx=model.X_train.index[-1],
+                                dir_path='outputs/xgboost/')
 
-        model = XGBoostModel()
-        model.train(df, 'ocnr_nm_result')
-        print(model.metrics)
+    r2, mape, lags = model.search_lag(df, 'ocnr_nm_result')
+    ts_view.plot_lag_search(r2, mape, lags, title="Performance de cada lag", 
+                            namespace=namespace, 
+                            filename='nov_xgboost_forecast_memory',
+                            dir_path='outputs/xgboost/')
 
-        pred, pred_time = model.predict(df, 'ocnr_nm_result')
-        ts_view = TimeSeriesView(dir_path = 'outputs/xgboost/')
-        ts_view.plot_model_evolution(pred_time, pred,
-                                    model.time, model.y, filename='nov_xgboost_forecast_memory',
-                                    title=f"Uso de Memória (GB)", namespace=namespace,
-                                    mape=model.metrics['MAPE'],
-                                    r2=model.metrics['R2'],
-                                    split_idx=model.X_train.index[-1])
+dl = DataLoader()
+if __name__ == "__main__":
+    dl.connect_to_db()
 
-        r2, mape, lags = model.search_lag(df, 'ocnr_nm_result')
-        ts_view.plot_lag_search(r2, mape, lags, title="Performance de cada lag", namespace=namespace, filename='nov_xgboost_forecast_memory')
+    namespaces = ['panda-nifi', 'panda-druid', 'telefonica-cem-mbb-prod']
+    for n in namespaces:
+        v = get_view_name(n)
+        test_model(n, v)
 
-    def run(self):
-        for n, v in zip(self.namespace, self.view_name):
-            self.test_model(n, v)
+    dl.close()
 
         
