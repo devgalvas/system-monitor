@@ -2,6 +2,7 @@ from controllers.controller_utils import get_view_name
 
 from models.multi_nn_model import MultiNNModel
 import views.time_series_view as ts_view
+import views.hyperparameters_view as hp_view
 from models.dataloader import DataLoader
 
 def train_multi_nn(namespace, view_name):
@@ -14,32 +15,36 @@ def train_multi_nn(namespace, view_name):
             MAX(ocnr_nm_result) FILTER (WHERE ocnr_tx_query = 'NAMESPACE_DISK_PERCENT') AS disk_percent
         FROM {view_name}
         WHERE ocnr_tx_query IN ('NAMESPACE_MEMORY_USAGE', 'NAMESPACE_CPU_USAGE', 'NAMESPACE_DISK_PERCENT')
-        AND EXTRACT(MONTH FROM ocnr_dt_date) = 11
         GROUP BY ocnr_dt_date
         ORDER BY ocnr_dt_date;
     """)
+    # AND EXTRACT(MONTH FROM ocnr_dt_date) = 11
     model = MultiNNModel()
     model.train(df)
     print(model.metrics)
 
     pred, pred_time = model.predict(df)
-
+    
     for i, c in enumerate(model.target_columns):
         pred_first_step = pred[:, i] 
         y_true_first_step = model.y[:, 0, i]
-        metrics = model.metrics[i]
+        metrics_per_col = model.metrics_per_col[i]
 
         ts_view.plot_model_evolution(pred_time[:len(pred_first_step)],
                             pred_first_step,
                             model.time[-len(y_true_first_step):],
                             y_true_first_step,
-                            filename=f'nov_multi_nn_forecast_{c}',
+                            filename=f'entire_multi_nn_forecast_{c}',
                             title=f"{c}", namespace=namespace,
-                            mape=metrics['MAPE'],
-                            r2=metrics['R2'],
+                            mape=metrics_per_col['MAPE'],
+                            r2=metrics_per_col['R2'],
                             split_idx=len(model.X_train),
                             dir_path='outputs/neural_network/')
-        return model
+        
+
+    hp_view.plot_history(model.history, model.metrics, filename='multi_nn', dir_path='outputs/neural_network/',
+                             namespace=namespace, title='Treinamento do MultiNN')
+    return model
     
 def test_multi_nn_day(namespace, view_name, model):
     df_26 = dl.query_to_db(f"""
@@ -50,8 +55,8 @@ def test_multi_nn_day(namespace, view_name, model):
             MAX(ocnr_nm_result) FILTER (WHERE ocnr_tx_query = 'NAMESPACE_DISK_PERCENT') AS disk_percent
         FROM {view_name}
         WHERE ocnr_tx_query IN ('NAMESPACE_MEMORY_USAGE', 'NAMESPACE_CPU_USAGE', 'NAMESPACE_DISK_PERCENT')
-        AND EXTRACT(MONTH FROM ocnr_dt_date) = 11
-        AND EXTRACT(DAY FROM ocnr_dt_date) = 26
+        AND EXTRACT(MONTH FROM ocnr_dt_date) = 4
+        AND EXTRACT(DAY FROM ocnr_dt_date) = 15
         GROUP BY ocnr_dt_date
         ORDER BY ocnr_dt_date;
     """)
@@ -60,16 +65,16 @@ def test_multi_nn_day(namespace, view_name, model):
 
     for i, c in enumerate(model.target_columns):
         pred_first_step = pred[:, i] 
-        metrics = model.metrics[i]
+        metrics_per_col = model.metrics_per_col[i]
 
         ts_view.plot_model_evolution(pred_time[:len(pred_first_step)],
                             pred_first_step,
                             df_26['ocnr_dt_date'],
                             df_26[c],
-                            filename=f'day26_multi_nn_forecast_{c}',
+                            filename=f'day15april_multi_nn_forecast_{c}',
                             title=f"{c}", namespace=namespace,
-                            mape=metrics['MAPE'],
-                            r2=metrics['R2'],
+                            mape=metrics_per_col['MAPE'],
+                            r2=metrics_per_col['R2'],
                             dir_path='outputs/neural_network/')
 
 dl = DataLoader()

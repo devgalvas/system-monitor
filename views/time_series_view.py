@@ -71,20 +71,3 @@ def plot_model_evolution(X_pred, y_pred, X_true, y_true, filename='', title='', 
     # plt.show()
     print(f"Salvando em: {output_file}")
     plt.close()
-
-def plot_lag_search(r2, mape, lags, filename='', title='', namespace='', dir_path='outputs/'):
-    plt.figure(figsize=(12, 6))
-    plt.plot(lags, r2, label=f'R2', color='tab:green')
-    plt.plot(lags, mape, label=f'MAPE', color='tab:blue')
-    plt.title(f'{title} - {namespace}')
-    plt.xlabel('Lags')
-    plt.ylabel(f'Performance')
-    plt.xticks(rotation=45)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.legend(loc='lower right')
-
-    output_file = f"{dir_path}l_{filename}_{namespace}.png"
-    plt.savefig(output_file)
-    print(f"Salvando em: {output_file}")
-    plt.close()

@@ -23,16 +23,10 @@ CREATE TABLE IF NOT EXISTS ocnr_dados (
 );
 """
 
-def connect_to_db(conn_str, retries=10, delay=3):
-    for i in range(retries):
-        try:
-            conn = psycopg2.connect(conn_str)
-            print("Postgres está pronto!")
-            return conn
-        except OperationalError as e:
-            print(f"Postgres não disponível ({e}), tentando novamente em {delay} segundos...")
-            time.sleep(delay)
-    raise Exception("Não foi possível conectar ao Postgres após várias tentativas")
+def connect_to_db(conn_str):
+    conn = psycopg2.connect(conn_str)
+    print("Postgres está pronto!")
+    return conn
 
 
 def create_table(conn):
@@ -41,29 +35,69 @@ def create_table(conn):
         conn.commit()
         print("Tabela criada (ou já existia).")
 
-def copy_csv_to_db(conn, csv_path, table_name, chunk_size=100_000):
-    total_size = os.path.getsize(csv_path)  # Tamanho total em bytes
+def copy_csv_to_db(conn, table_name='ocnr_dados', chunk_size=100_000):
+    try:
+        leftover = ""
+        for i in range(0, 6):
+            csv_path = rf"D:\Vertis\volumes\archive\0{i}.csv"
+            # tamanho_bytes = os.path.getsize(csv_path)
+            # print(tamanho_bytes)
+            if i % 2 == 0:
+                encoding = 'utf-16-le'
+            else:
+                encoding = 'utf-16-be'
+            with open(csv_path, "r", encoding=encoding, errors="ignore") as f:
+                batch = []
+                with conn.cursor() as cur:
+                    for line_number, line in enumerate(f, 1):
+                        # Junta sobra do arquivo anterior com a primeira linha
+                        if leftover:
+                            line = leftover + line
+                            leftover = ""
 
-    processed_bytes = 0
+                        # Se a linha terminar sem quebra de linha, guarda em leftover
+                        if not line.endswith("\n"):
+                            leftover = line
+                            continue
 
-    with conn.cursor() as cur, open(csv_path, 'r', encoding='utf-16') as f:
-        print("Iniciando a importação.")
+                        batch.append(line)
 
-        reader = pd.read_csv(f, chunksize=chunk_size)
+                        # Se chegou no tamanho do chunk → manda pro Postgres
+                        if len(batch) >= chunk_size:
+                            buffer = io.StringIO("".join(batch))
+                            cur.copy_expert(
+                                f"COPY {table_name} FROM STDIN WITH (FORMAT CSV, HEADER, DELIMITER ',')",
+                                buffer
+                            )
+                            conn.commit()
+                            batch.clear()
+                            print(f"{line_number} linhas processadas em {csv_path}...")
 
-        for chunk in reader:
-            buffer = io.StringIO()
-            chunk.to_csv(buffer, index=False, header=False)
-            buffer.seek(0)
-            cur.copy_expert(f"COPY {table_name} FROM STDIN WITH CSV", buffer)
-            conn.commit()
+                    # Últimas linhas do arquivo atual
+                    if batch:
+                        buffer = io.StringIO("".join(batch))
+                        cur.copy_expert(
+                            f"COPY {table_name} FROM STDIN WITH (FORMAT CSV, HEADER, DELIMITER ',')",
+                            buffer
+                        )
+                        conn.commit()
+                        print(f"Finalizado {csv_path}.")
 
-            # Atualiza progresso com base no ponteiro atual do arquivo original
-            processed_bytes = f.tell()
-            progress = (processed_bytes / total_size) * 100
-            print(f"Progresso: {progress:.2f}%")
+        # Se depois do último arquivo ainda sobrou linha → manda também
+        if leftover:
+            with conn.cursor() as cur:
+                buffer = io.StringIO(leftover)
+                cur.copy_expert(
+                    f"COPY {table_name} FROM STDIN WITH (FORMAT CSV, HEADER FALSE, DELIMITER ',')",
+                    buffer
+                )
+                conn.commit()
+            print("Última linha concatenada e inserida.")
 
-    print("Importação concluída com sucesso.")
+        print("✅ Importação concluída com sucesso.")
+
+    except Exception as e:
+        print("❌ Erro na importação:", e)
 
 def main():
     load_dotenv()
@@ -76,9 +110,8 @@ def main():
     }
     conn_str = f"host={DB_CONFIG['host']} port={DB_CONFIG['port']} dbname={DB_CONFIG['dbname']} user={DB_CONFIG['user']} password={DB_CONFIG['password']}"
     conn = connect_to_db(conn_str)
-    create_table(conn)
-    for i in range(5):
-        copy_csv_to_db(conn, f"/archive/0{i}.csv", 'ocnr_dados')
+    create_table(conn)    
+    copy_csv_to_db(conn)
 
 if __name__ == "__main__":
     main()

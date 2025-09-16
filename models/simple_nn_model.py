@@ -40,12 +40,12 @@ class SimpleNNModel(NNModel):
         ])
 
         self.model.compile(optimizer='adam', loss='mean_squared_error', 
-                           metrics=[metrics.MeanAbsoluteError(), metrics.R2Score()])
+                           metrics=[keras.losses.MAPE, metrics.R2Score()])
 
         self.history = self.model.fit(
             self.X_train,
             self.y_train,
-            epochs=5,
+            epochs=50,
             validation_data=(self.X_val, self.y_val),
         )
 

@@ -1,6 +1,7 @@
 from controllers.controller_utils import get_view_name 
 
 import views.time_series_view as ts_view
+import views.hyperparameters_view as hp_view
 from models.xgboost_model import XGBoostModel
 from models.dataloader import DataLoader
 
@@ -27,7 +28,7 @@ def test_model(namespace, view_name):
                                 dir_path='outputs/xgboost/')
 
     r2, mape, lags = model.search_lag(df, 'ocnr_nm_result')
-    ts_view.plot_lag_search(r2, mape, lags, title="Performance de cada lag", 
+    hp_view.plot_lag_search(r2, mape, lags, title="Performance de cada lag", 
                             namespace=namespace, 
                             filename='nov_xgboost_forecast_memory',
                             dir_path='outputs/xgboost/')
