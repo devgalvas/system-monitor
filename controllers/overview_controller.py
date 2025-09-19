@@ -1,4 +1,4 @@
-from controllers.controller_utils import get_view_name 
+from utils.controller_utils import get_view_name 
 
 import views.overview as ov
 from models.dataloader import DataLoader

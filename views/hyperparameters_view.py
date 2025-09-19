@@ -20,10 +20,8 @@ def plot_lag_search(r2, mape, lags, filename='', title='', namespace='', dir_pat
 
 def plot_history(history, metrics, filename='', title='', namespace='', dir_path='outputs/'):
     epochs = range(1, len(history.history['loss']) + 1)
-    # plt.plot(epochs, history.history['val_r2_score'], label='R2 (Validation)')
-    plt.plot(epochs, history.history['val_mean_absolute_percentage_error'], label='MAPE (Validation)')
-    # plt.axhline(metrics['R2'], label='R2 (Test)', color='red', linestyle='--', linewidth=2,)
-    plt.axhline(metrics['MAPE'] * 100, label='MAPE (Test)', color='green', linestyle='--', linewidth=2,)
+    plt.plot(epochs, history.history['val_mean_absolute_error'], label='MAE (Validation)')
+    plt.axhline(metrics['MAE'] * 100, label='MAE (Test)', color='green', linestyle='--', linewidth=2,)
     plt.legend(loc='lower right')
     plt.grid(True)
     plt.tight_layout()

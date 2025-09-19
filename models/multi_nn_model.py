@@ -1,15 +1,14 @@
 from models.nn_model import NNModel
 from tensorflow import keras
+import tensorflow as tf
 from tensorflow.keras import layers, metrics
-
-from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 import pandas as pd
 import numpy as np
 
 class MultiNNModel(NNModel):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__('multi_nn.keras', **kwargs)
         self.target_columns = None
         self.metrics_per_col = []
 
@@ -40,62 +39,50 @@ class MultiNNModel(NNModel):
         self.model = keras.Sequential([
             layers.Input(shape=(self.input_width, n_features)),
             layers.LSTM(128, return_sequences=True),
-            layers.LSTM(64),
+            layers.LSTM(128),
             layers.Dropout(0.2),
             layers.Dense(self.forecast_horizon * n_features),  # todas as features x horizontes
             layers.Reshape((self.forecast_horizon, n_features))
         ])
 
-        early_stop = EarlyStopping(
-            monitor='val_loss',   # pode ser 'val_loss' ou outra métrica de validação
-            patience=10,          # nº de épocas sem melhora antes de parar
-            restore_best_weights=True # restaura os melhores pesos ao final
-        )
-
-        checkpoint = ModelCheckpoint(
-            filepath='outputs/neural_network/multi_nn.keras',
-            monitor='val_loss',
-            save_best_only=True
-        )
-
-        reduce_lr = ReduceLROnPlateau(
-            monitor='val_loss',
-            factor=0.5,   # reduz a learning rate pela metade
-            patience=5,   # espera 5 épocas sem melhora
-            min_lr=1e-6
-        )
-
-        self.model.compile(optimizer='adam', loss='mean_squared_error', metrics=[keras.losses.MAPE])
+        self.model.compile(optimizer='adam', 
+                           loss='mean_squared_error', 
+                           metrics=[keras.metrics.MAE])
 
         self.history = self.model.fit(
             self.X_train,
             self.y_train,
             epochs=100,
             validation_data=(self.X_val, self.y_val),
-            callbacks=[early_stop, checkpoint, reduce_lr]
+            callbacks=self.callbacks
         )
 
         self.y_pred = self.model.predict(self.X_test)
         
-        self.metrics_per_col = []   
-        y_true_unscaled = self.scaler_y.inverse_transform(self.y_test.reshape(-1, 3))
-        y_pred_unscaled = self.scaler_y.inverse_transform(self.y_pred.reshape(-1, 3))
+        self.metrics_per_col = []
+        y_true_scaled = self.y_test.reshape(-1, 3)
+        y_pred_scaled = self.y_pred.reshape(-1, 3)
+        y_true_unscaled = self.scaler_y.inverse_transform(y_true_scaled)
+        y_pred_unscaled = self.scaler_y.inverse_transform(y_pred_scaled)
         for i, v in enumerate(self.target_columns):
             y_true_feat = y_true_unscaled[:, i:i+1]
             y_pred_feat = y_pred_unscaled[:, i:i+1]
+
+            y_true_feat_scaled = y_true_scaled[:, i:i+1]
+            y_pred_feat_scaled = y_pred_scaled[:, i:i+1]
         
             self.metrics_per_col.append({
                 "column": v,
                 "MAPE": keras.metrics.MeanAbsolutePercentageError()(y_true_feat, y_pred_feat).numpy(),
+                "MAE": keras.metrics.MeanAbsoluteError()(y_true_feat_scaled, y_pred_feat_scaled).numpy(),
                 "R2": keras.metrics.R2Score()(y_true_feat, y_pred_feat).numpy()
             })
 
         self.metrics = {
             "MAPE": np.mean([m["MAPE"] for m in self.metrics_per_col]),
+            "MAE": np.mean([m["MAE"] for m in self.metrics_per_col]),
             "R2": np.mean([m["R2"] for m in self.metrics_per_col])
         }
-
-        # self.model.save("outputs/neural_network/multi_nn.keras")
 
     def predict(self, df):
         X, y, time = self.preprocess(df)

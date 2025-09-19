@@ -1,12 +1,13 @@
-from controllers.controller_utils import get_view_name 
+from utils.controller_utils import get_view_name 
 
 from models.multi_nn_model import MultiNNModel
 import views.time_series_view as ts_view
 import views.hyperparameters_view as hp_view
 from models.dataloader import DataLoader
 
-def train_multi_nn(namespace, view_name):
-    dl.createNamespaceView(namespace, view_name)
+import pandas as pd
+
+def train_multi_nn(view_name):
     df = dl.query_to_db(f"""
         SELECT
             ocnr_dt_date,
@@ -21,8 +22,10 @@ def train_multi_nn(namespace, view_name):
     # AND EXTRACT(MONTH FROM ocnr_dt_date) = 11
     model = MultiNNModel()
     model.train(df)
-    print(model.metrics)
 
+    return model, df
+    
+def test_multi_nn_entire(namespace, model, df):
     pred, pred_time = model.predict(df)
     
     for i, c in enumerate(model.target_columns):
@@ -44,8 +47,7 @@ def train_multi_nn(namespace, view_name):
 
     hp_view.plot_history(model.history, model.metrics, filename='multi_nn', dir_path='outputs/neural_network/',
                              namespace=namespace, title='Treinamento do MultiNN')
-    return model
-    
+
 def test_multi_nn_day(namespace, view_name, model):
     df_26 = dl.query_to_db(f"""
         SELECT
@@ -81,10 +83,30 @@ dl = DataLoader()
 if __name__ == "__main__":
     dl.connect_to_db()
 
-    namespaces = ['panda-nifi', 'panda-druid', 'telefonica-cem-mbb-prod']
+    # namespaces = ['panda-nifi', 'panda-druid', 'telefonica-cem-mbb-prod']
+    namespaces = dl.query_to_db("""
+        SELECT ocnr_tx_namespace, SUM(count_result) AS total_count
+        FROM ocnr_overview
+        GROUP BY ocnr_tx_namespace
+        ORDER BY total_count DESC
+        LIMIT 20;                         
+    """)['ocnr_tx_namespace']
+
+    rows = []
+
     for n in namespaces:
         v = get_view_name(n)
-        model = train_multi_nn(n, v)
-        test_multi_nn_day(n, v, model)
+        dl.createNamespaceView(n, v)
+        model, df = train_multi_nn(v)
+        for m in model.metrics_per_col:
+            row = {"namespace": n, "query": m['column']}
+            row.update({k: v for k, v in m.items() if k != "column"})
+            rows.append(row)
+
+    df_results = pd.DataFrame(rows)
+
+    results_path = 'outputs/neural_network/multi_nn_results.csv'
+    print(f"Salvando em {results_path}")
+    df_results.to_csv(results_path, index=False)
 
     dl.close()

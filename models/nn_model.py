@@ -1,11 +1,12 @@
 from models.base_model import BaseModel
 
 from sklearn.preprocessing import StandardScaler
+from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 import numpy as np
 
 class NNModel(BaseModel):
-    def __init__(self, **kwargs):
+    def __init__(self, saving_file, **kwargs):
         super().__init__(**kwargs)
         self.freq = "5min"
         self.input_width = 12
@@ -18,6 +19,23 @@ class NNModel(BaseModel):
         self.y_val_raw = None 
         self.X_test_raw = None
         self.y_test_raw = None
+
+        self.saving_file = saving_file
+
+        self.callbacks = [EarlyStopping(
+            monitor='val_loss',   # pode ser 'val_loss' ou outra métrica de validação
+            patience=10,          # nº de épocas sem melhora antes de parar
+            restore_best_weights=True # restaura os melhores pesos ao final
+        ), ModelCheckpoint(
+            filepath=f'outputs/neural_network/{self.saving_file}',
+            monitor='val_loss',
+            save_best_only=True
+        ), ReduceLROnPlateau(
+            monitor='val_loss',
+            factor=0.5,   # reduz a learning rate pela metade
+            patience=5,   # espera 5 épocas sem melhora
+            min_lr=1e-6
+        )]
 
     def split(self):
         n = self.X.shape[0]

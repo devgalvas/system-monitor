@@ -1,4 +1,4 @@
-from controllers.controller_utils import get_view_name 
+from utils.controller_utils import get_view_name 
 
 import views.time_series_view as ts_view
 import views.hyperparameters_view as hp_view
