@@ -8,6 +8,8 @@ from sklearn.preprocessing import LabelEncoder
 import pandas as pd
 import numpy as np
 
+import random
+
 class SuperNNModel(NNModel):
     def __init__(self, **kwargs):
         super().__init__('super_nn.keras', **kwargs)
@@ -61,14 +63,19 @@ class SuperNNModel(NNModel):
 
     def mix_namespaces(self):
         unique_ns = np.unique(self.namespaces_ids)
-        groups = [np.where(self.namespaces_ids == ns)[0] for ns in unique_ns]
-        max_len = max(len(g) for g in groups)
+        
+        groups = [list(np.where(self.namespaces_ids == ns)[0]) for ns in unique_ns]
+        sizes = np.array([len(g) for g in groups], dtype=int)
+        total_size = sizes.sum()
 
         interleaved_idx = []
-        for i in range(max_len):
-            for g in groups:
-                if i < len(g):  
-                    interleaved_idx.append(g[i])
+        for _ in range(total_size):
+            available = [i for i, g in enumerate(groups) if len(g) > 0]
+            weights = [len(groups[i]) for i in available]
+
+            g_choice = random.choices(available, weights=weights, k=1)[0]
+            chosen_item = groups[g_choice].pop(0)
+            interleaved_idx.append(chosen_item)
 
         interleaved_idx = np.array(interleaved_idx)
 
@@ -77,7 +84,6 @@ class SuperNNModel(NNModel):
         self.namespaces_ids = self.namespaces_ids[interleaved_idx]
 
     def split_by_namespace(self, X, y, nms_ids):
-        """Separa X, y e ids em dicionários por namespace_id"""
         unique_ns = np.unique(nms_ids)
         groups = {}
 
@@ -130,7 +136,7 @@ class SuperNNModel(NNModel):
         self.history = self.model.fit(
             [self.X_train, self.ns_train],   # duas entradas!
             self.y_train,
-            epochs=1,
+            epochs=50,
             validation_data=([self.X_val, self.ns_val], self.y_val),
             callbacks=self.callbacks
         )
@@ -139,7 +145,6 @@ class SuperNNModel(NNModel):
 
         self.metrics = []
         for g in groups.values():
-            print(g['X'])
             self.y_pred = self.model.predict([g['X'], g['ids']])
 
             y_true_scaled = g['y'].reshape(-1, 6)

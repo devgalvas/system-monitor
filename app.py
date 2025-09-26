@@ -1,6 +1,6 @@
 import pandas as pd
 
-caminho_csv = "outputs/neural_network/multi_nn_results.csv"
+caminho_csv = "outputs/neural_network/super_nn_results.csv"
 
 # 1. Ler CSV
 df = pd.read_csv(caminho_csv)

@@ -19,6 +19,8 @@ if __name__ == "__main__":
         LIMIT 20;                         
     """)['ocnr_tx_namespace']
 
+    namespaces = namespaces[namespaces != "smartoss-application-prod"]
+
     queries = ['NAMESPACE_MEMORY_USAGE', 'NAMESPACE_DISK_PERCENT', 'NAMESPACE_CPU_USAGE']
 
     all_dfs = []
