@@ -2,8 +2,10 @@ from models.nn_model import NNModel
 
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorflow.keras.models import load_model
 
-from sklearn.preprocessing import LabelEncoder
+# from sklearn.preprocessing import LabelEncoder
+from utils.safe_encoder import SafeLabelEncoder
 
 import pandas as pd
 import numpy as np
@@ -18,19 +20,26 @@ class SuperNNModel(NNModel):
         self.namespaces_ids = np.empty((0,), dtype=int)
         self.time = np.empty((0,), dtype='datetime64[ns]')
 
-    def preprocess(self, df, target_column, training=True):
-        df['ocnr_dt_date'] = pd.to_datetime(df['ocnr_dt_date'])  
+    def preprocess(self, df, target_column):
+        df['ocnr_dt_date'] = pd.to_datetime(df['ocnr_dt_date']) 
+        df = df.set_index('ocnr_dt_date')  
 
-        df[f"lag"] = df[target_column].shift(1)
-        df = df.dropna()
+        df_resampled = df.resample(self.freq).mean(numeric_only=True).interpolate() 
 
-        namespace_id = []
-        if training:
-            namespace_id = self.namespace_encoder.transform(df['ocnr_tx_namespace'])
+        df_resampled[f"lag"] = df_resampled[target_column].shift(1)
+        df_resampled = df_resampled.dropna().reset_index()
 
-        time = df['ocnr_dt_date']
-        X = df.drop(columns=[target_column, 'ocnr_dt_date', 'ocnr_tx_namespace'])
-        y = df[target_column].values.reshape(-1, 1)
+        time = df_resampled['ocnr_dt_date']
+        X = df_resampled.drop(columns=[target_column, 'ocnr_dt_date'])
+        y = df_resampled[target_column].values.reshape(-1, 1)
+
+        if hasattr(self.namespace_encoder, "classes_"):
+            ns_val = df['ocnr_tx_namespace'].iloc[0]  # namespace do df
+            ns_index = self.namespace_encoder.transform([ns_val])[0]
+            namespace_id = np.full((len(X),), ns_index, dtype=int)
+        else:
+            namespace_id = np.full((len(X),), 0, dtype=int) 
+
         return X, y, time, namespace_id
 
     def split(self):
@@ -98,7 +107,7 @@ class SuperNNModel(NNModel):
         return groups
 
     def train(self, all_dfs, target_column):
-        self.namespace_encoder = LabelEncoder()
+        self.namespace_encoder = SafeLabelEncoder()
         self.namespace_encoder.fit(pd.concat([df['ocnr_tx_namespace'] for df in all_dfs]))
         for df in all_dfs:
             X, y, time, namespaces_ids = self.preprocess(df, target_column)
@@ -163,12 +172,12 @@ class SuperNNModel(NNModel):
             })
 
     def predict(self, df, target_column):
-        X, y, time = self.preprocess(df, target_column, training=False)
-        X, y = self.create_windows(X, y)
-        X_scaled = self.scaler_X.transform(X)
-        y_pred_scaled = self.model.predict(X_scaled)
+        X, y, time, ns = self.preprocess(df, target_column)
+        X, y, ns = self.create_windows(X, y, ns)
+        X_scaled = self.scaler_X.transform(np.squeeze(X, axis=-1))
+        y_pred_scaled = self.model.predict([X_scaled, ns])
         y_pred = self.scaler_y.inverse_transform(y_pred_scaled)
-        return y_pred, time
+        return y_pred, y, time
 
     def load(self):
-        self.model.load_model(f"outputs/neural_network/{self.saving_file}")
+        self.model = load_model(f"outputs/neural_network/{self.saving_file}")

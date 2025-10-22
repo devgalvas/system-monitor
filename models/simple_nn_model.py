@@ -2,8 +2,10 @@ from models.nn_model import NNModel
 
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorflow.keras.models import load_model
 
 import pandas as pd
+import numpy as np
 
 class SimpleNNModel(NNModel):
     def __init__(self, **kwargs):
@@ -12,7 +14,7 @@ class SimpleNNModel(NNModel):
     def preprocess(self, df, target_column):
         df['ocnr_dt_date'] = pd.to_datetime(df['ocnr_dt_date'])  
         df = df.set_index('ocnr_dt_date')  
-        df = df.resample(self.freq).mean().interpolate()
+        df = df.resample(self.freq).mean(numeric_only=True).interpolate()
 
         df[f"lag"] = df[target_column].shift(1)
         df = df.dropna().reset_index()
@@ -68,10 +70,11 @@ class SimpleNNModel(NNModel):
         X, y, time = self.preprocess(df, target_column)
         X_scaled = self.scaler_X.transform(X)
         y_scaled = self.scaler_y.transform(y)
-        X, _ = self.create_windows(X_scaled, y_scaled)
+        X, y = self.create_windows(X_scaled, y_scaled)
         y_pred_scaled = self.model.predict(X)
         y_pred = self.scaler_y.inverse_transform(y_pred_scaled)
-        return y_pred, time
+        y_true = self.scaler_y.inverse_transform(np.squeeze(y, axis=-1))
+        return y_pred, y_true, time
 
     def load(self):
-        self.model.load_model("outputs/neural_network/simple_nn.keras")
+        self.model = load_model("outputs/neural_network/simple_nn.keras")
