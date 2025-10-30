@@ -4,18 +4,21 @@ Este repositório implementa um pipeline completo para a análise de dados do mo
 ## Visão Geral
 O projeto está organizado em módulos bem definidos, que se comunicam entre si para formar o fluxo de dados:
 * `models/` → contém a lógica dos modelos de IA (pré-processamento, treinamento, predição).
-* `controllers/` → orquestram o pipeline, integrando `DataLoader`, `Model` e `View`.
+* `controllers/` → realizam as ações diversas de análise, tal como o treinamento, teste e visualização dos modelos.
 * `views/` → responsáveis pela visualização e geração dos gráficos.
 * `outputs/` → repositório dos resultados estáticos (gráficos `.png`, modelos salvos).
+* `params/` → repositório dos parâmetros, weights e biases dos modelos.
 * Scripts principais (`app.py`, `importCSV.py`) → entrada do sistema e utilidades.
 
 ``` bash 
-├── app.py                 # Ponto de entrada da aplicação
 ├── importCSV.py           # Script auxiliar para ingestão de dados
 │
-├── controllers/           # Controladores do pipeline
-│   ├── base_controllers.py
-│   ├── nn_controller.py
+├── controllers/           
+│   ├── multi_nn_controller.py
+│   ├── no_training_controller.py
+│   ├── results_controller.py
+│   ├── simple_nn_controller.py
+│   ├── super_nn_controller.py
 │   ├── overview_controller.py
 │   └── xgboost_controller.py
 │
@@ -24,12 +27,19 @@ O projeto está organizado em módulos bem definidos, que se comunicam entre si 
 │   ├── dataloader.py
 │   ├── multi_nn_model.py
 │   ├── simple_nn_model.py
+│   ├── super_nn_model.py
+│   ├── nn_model.py
 │   └── xgboost_model.py
 │
 ├── views/                 # Visualizações e geração de gráficos
 │   ├── base_view.py
 │   ├── overview.py
 │   └── time_series_view.py
+│   └── hyperparameters_view.py
+│   └── results_view.py
+│
+├── params/                # Os weights, biases e outros parametros dos modelos 
+│   └── super_nn/
 │
 ├── outputs/               # Resultados do projeto
 │   ├── neural_network/    # Gráficos das redes neurais
@@ -113,12 +123,16 @@ O diretório `models/` contém as classes responsáveis pela lógica intrínseca
 
 ## Controllers
 O diretório `controllers/` contém as classes responsáveis por orquestrar todo pipeline de treinamento, teste e visualização dos modelos. Os controllers atuam como camada de integração, coordenando chamadas para o `Dataloader`, os `models` e as `views`. Exigi-se que toda classe `controller` implemente no mínimo o método `run`.
+O diretório `controllers/` contém scripts que realizam tarefas diversas, tais como treinamento, teste e visualização dos modelos e análise de resultados. Os controllers atuam como camada de integração, coordenando chamadas para o `Dataloader`, os `models` e as `views`. É possível rodar qualquer `controller` por meio do comando:
+```
+python -m controllers.<nome_do_controller>
+```
 
 ## Views
-O diretório `views/` contém as classes responsáveis pela plotagem e visualização dos dados e resultados dos modelos. A plotagem é feita por meio das bibliotecas `matplotlib` e `seaborn`. Todos os gráficos são salvos em arquivos .png dentro do diretório `outputs/`. Cada classe de view pode definir sua própria subpasta por meio do atributo `dir_path`, permitindo organizar melhor os resultados de diferentes experimentos ou modelos.
+O diretório `views/` contém as funções responsáveis pela plotagem e visualização dos dados e resultados dos modelos. A plotagem é feita por meio das bibliotecas `matplotlib`, `seaborn` e `pandas`. Todos os gráficos são salvos em arquivos .png e as tabelas em arquivos .csv dentro do diretório `outputs/`. É possível definir subpastas na chamada destas funções para organizar melhor os arquivos.
 
 ## Outputs
-O diretório `outputs/` contém todos os arquivos estáticos gerados pelo projeto, como imagens (`.png`) e modelos salvos (`.keras`). A organização segue a seguinte hierarquia:
+O diretório `outputs/` contém todos os arquivos estáticos gerados pelo projeto, como imagens (`.png`) e tabelas (`.csv`). A organização segue a seguinte hierarquia:
 * `neural_network/`: resultados relacionados a redes neurais.
 * `xgboost/`: resultados relacionados ao modelo XGBoost.
 * arquivos na raiz (`outputs/`): análises gerais, decomposições e estatísticas.
@@ -145,3 +159,6 @@ Indica o tipo de gráfico:
 
 5. Namespace
 * Namespace utilizado: `panda-druid`, `panda-nifi`.
+
+## Params
+O diretório `params` contém os parâmetros, weights e biases dos modelos. Por meio dele, é possível reconstruir um modelo com o método `.load()`. O método `.save()` salva os parâmetros dos modelos em arquivos nesse diretório. 
