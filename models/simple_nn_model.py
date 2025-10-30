@@ -4,12 +4,15 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import load_model
 
+from utils.smape import smape
+
 import pandas as pd
 import numpy as np
+import pickle
 
 class SimpleNNModel(NNModel):
     def __init__(self, **kwargs):
-        super().__init__('simple_nn.keras', **kwargs)
+        super().__init__(**kwargs)
 
     def preprocess(self, df, target_column):
         df['ocnr_dt_date'] = pd.to_datetime(df['ocnr_dt_date'])  
@@ -61,7 +64,7 @@ class SimpleNNModel(NNModel):
         y_true_unscaled = self.scaler_y.inverse_transform(y_true_scaled)
 
         self.metrics = {
-            "MAPE": keras.metrics.MeanAbsolutePercentageError()(y_true_unscaled, y_pred_unscaled).numpy(),
+            "MAPE": smape(y_true_unscaled, y_pred_unscaled),
             "R2": keras.metrics.R2Score()(y_true_unscaled, y_pred_unscaled).numpy(),
             "MAE": keras.metrics.MeanAbsoluteError()(y_true_scaled, y_pred_scaled).numpy()
         }
@@ -76,5 +79,19 @@ class SimpleNNModel(NNModel):
         y_true = self.scaler_y.inverse_transform(np.squeeze(y, axis=-1))
         return y_pred, y_true, time
 
-    def load(self):
-        self.model = load_model("outputs/neural_network/simple_nn.keras")
+    def load(self, namespace, query):
+        self.model = load_model(f"params/simple_nn/simple_nn.keras")
+        with open(f'params/simple_nn/simple_nn_{namespace}_{query}.pkl', 'rb') as file:
+            loaded_object = pickle.load(file)
+            self.scaler_X = loaded_object['scaler_x']
+            self.scaler_y = loaded_object['scaler_y']
+
+    def save(self, namespace, query):
+        self.model.save(f"params/simple_nn/simple_nn_{namespace}_{query}.keras")
+        with open(f"params/simple_nn/simple_nn_{namespace}_{query}.pkl", "wb") as file:
+            data = {
+                "scaler_x": self.scaler_X,
+                "scaler_y": self.scaler_y
+            }
+            pickle.dump(data, file)
+

@@ -4,17 +4,19 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import load_model
 
-# from sklearn.preprocessing import LabelEncoder
 from utils.safe_encoder import SafeLabelEncoder
+from utils.smape import smape
+from sklearn.preprocessing import StandardScaler
 
 import pandas as pd
 import numpy as np
+import pickle
 
 import random
 
 class SuperNNModel(NNModel):
     def __init__(self, **kwargs):
-        super().__init__('super_nn.keras', **kwargs)
+        super().__init__(**kwargs)
         self.X = np.empty((0, self.input_width, 1))
         self.y = np.empty((0, self.forecast_horizon, 1))
         self.namespaces_ids = np.empty((0,), dtype=int)
@@ -166,7 +168,7 @@ class SuperNNModel(NNModel):
 
             self.metrics.append({
                 "namespace": ns,
-                "MAPE": keras.metrics.MeanAbsolutePercentageError()(y_true_unscaled, y_pred_unscaled).numpy(),
+                "MAPE": smape(y_true_unscaled, y_pred_unscaled),
                 "R2": keras.metrics.R2Score()(y_true_unscaled, y_pred_unscaled).numpy(),
                 "MAE": keras.metrics.MeanAbsoluteError()(y_true_scaled, y_pred_scaled).numpy()
             })
@@ -174,10 +176,29 @@ class SuperNNModel(NNModel):
     def predict(self, df, target_column):
         X, y, time, ns = self.preprocess(df, target_column)
         X, y, ns = self.create_windows(X, y, ns)
+
+        self.scaler_X = StandardScaler().fit(np.squeeze(X, axis=-1))
+        self.scaler_y = StandardScaler().fit(np.squeeze(y, axis=-1))
+
         X_scaled = self.scaler_X.transform(np.squeeze(X, axis=-1))
         y_pred_scaled = self.model.predict([X_scaled, ns])
         y_pred = self.scaler_y.inverse_transform(y_pred_scaled)
         return y_pred, y, time
 
-    def load(self):
-        self.model = load_model(f"outputs/neural_network/{self.saving_file}")
+    def load(self, query):
+        self.model = load_model(f"params/super_nn/super_nn_{query}.keras")
+        with open(f'params/super_nn/super_nn_{query}.pkl', 'rb') as file:
+            loaded_object = pickle.load(file)
+            self.scaler_X = loaded_object['scaler_x']
+            self.scaler_y = loaded_object['scaler_y']
+            self.namespace_encoder = loaded_object['namespace_encoder']
+
+    def save(self, query):
+        self.model.save(f"params/super_nn/super_nn_{query}.keras")
+        with open(f"params/super_nn/super_nn_{query}.pkl", "wb") as file:
+            data = {
+                "scaler_x": self.scaler_X,
+                "scaler_y": self.scaler_y,
+                "namespace_encoder": self.namespace_encoder
+            }
+            pickle.dump(data, file)

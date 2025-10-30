@@ -16,6 +16,7 @@ def train_simple_nn(view_name, query):
 
         model = SimpleNNModel()
         model.train(df, "ocnr_nm_result")
+        model.save(view_name, query)
         print(model.metrics)
         
         return model, df

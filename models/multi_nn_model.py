@@ -2,9 +2,13 @@ from models.nn_model import NNModel
 from tensorflow import keras
 import tensorflow as tf
 from tensorflow.keras import layers, metrics
+from tensorflow.keras.models import load_model
+
+from utils.smape import smape
 
 import pandas as pd
 import numpy as np
+import pickle
 
 class MultiNNModel(NNModel):
     def __init__(self, **kwargs):
@@ -73,7 +77,7 @@ class MultiNNModel(NNModel):
         
             self.metrics_per_col.append({
                 "column": v,
-                "MAPE": keras.metrics.MeanAbsolutePercentageError()(y_true_feat, y_pred_feat).numpy(),
+                "MAPE": smape(y_true_feat, y_pred_feat),
                 "MAE": keras.metrics.MeanAbsoluteError()(y_true_feat_scaled, y_pred_feat_scaled).numpy(),
                 "R2": keras.metrics.R2Score()(y_true_feat, y_pred_feat).numpy()
             })
@@ -94,5 +98,18 @@ class MultiNNModel(NNModel):
         y_pred = self.scaler_y.inverse_transform(y_pred_scaled)
         return y_pred, time
 
-    def load(self):
-        self.model.load_model("outputs/neural_network/multi_nn.keras")
+    def load(self, namespace):
+        self.model = load_model(f"params/multi_nn/multi_nn_{namespace}.keras")
+        with open(f'params/multi_nn/multi_nn_{namespace}.pkl', 'rb') as file:
+            loaded_object = pickle.load(file)
+            self.scaler_X = loaded_object['scaler_x']
+            self.scaler_y = loaded_object['scaler_y']
+
+    def save(self, namespace):
+        self.model.save(f"params/multi_nn/multi_nn_{namespace}.keras")
+        with open(f"params/multi_nn/multi_nn_{namespace}.pkl", "wb") as file:
+            data = {
+                "scaler_x": self.scaler_X,
+                "scaler_y": self.scaler_y
+            }
+            pickle.dump(data, file)

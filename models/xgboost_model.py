@@ -99,3 +99,6 @@ class XGBoostModel(BaseModel):
 
     def load(self):
         pass
+
+    def save(self):
+        pass

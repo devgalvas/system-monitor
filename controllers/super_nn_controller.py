@@ -10,7 +10,6 @@ dl = DataLoader()
 if __name__ == "__main__":
     dl.connect_to_db()
 
-    # namespaces = ['panda-nifi', 'panda-druid', 'telefonica-cem-mbb-prod']
     namespaces = dl.query_to_db("""
         SELECT ocnr_tx_namespace, SUM(count_result) AS total_count
         FROM ocnr_overview
@@ -39,6 +38,7 @@ if __name__ == "__main__":
     for q in queries:
         model = SuperNNModel()
         model.train(all_dfs, 'ocnr_nm_result')
+        model.save(q)
         for m in model.metrics:
             row = {"query": q}
             row.update(m)  # adiciona métricas como colunas
